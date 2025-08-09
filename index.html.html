@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gestión Furgonetas</title>
+      <!-- PWA: Manifest y Service Worker -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#FFA500" />
+<link rel="icon" href="icon-192.png" />
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(reg => console.log('✅ Service Worker registrado', reg))
+        .catch(err => console.error('❌ Error al registrar Service Worker', err));
+    });
+  }
+</script>
+
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: orange;
+      margin: 0; padding: 20px;
+      color: #000;
+    }
+    h1, h2 {
+      text-align: center;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      padding: 20px;
+      margin-bottom: 20px;
+      max-width: 480px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    select, input[type=text], button, textarea {
+      width: 100%;
+      padding: 12px 10px;
+      margin-top: 12px;
+      font-size: 1rem;
+      border-radius: 8px;
+      border: 1.5px solid #ccc;
+      box-sizing: border-box;
+    }
+    button {
+      background: #004aad;
+      border: none;
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      user-select: none;
+    }
+    button:hover:not(:disabled) {
+      background: #00337a;
+    }
+    button:disabled {
+      background: #999;
+      cursor: not-allowed;
+    }
+    button.secondary {
+      background: #d9534f;
+    }
+    button.secondary:hover:not(:disabled) {
+      background: #b52b27;
+    }
+    .highlight {
+      background-color: #aaddff !important;
+      color: #000;
+      font-weight: 700;
+    }
+    #mensajeEliminar {
+      background: #fce4e4;
+      border: 1px solid #d9534f;
+      color: #a33;
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 15px;
+      text-align: center;
+    }
+    .hidden {
+      display: none !important;
+    }
+    .photo-gallery {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 10px;
+    }
+    .foto-card {
+      width: 90px;
+      text-align: center;
+    }
+    .foto-card img {
+      width: 100%;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 0 5px #888;
+    }
+    .foto-fecha {
+      font-size: 0.75rem;
+      color: #333;
+      margin-top: 4px;
+    }
+    .btnEliminarFoto {
+      margin-top: 4px;
+      background: #d9534f;
+      font-size: 0.8rem;
+      border-radius: 6px;
+      padding: 4px;
+    }
+    @media (max-width: 520px) {
+      body {
+        padding: 10px;
+      }
+      .card {
+        max-width: 100%;
+        padding: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Gestión de Furgonetas - Rent a Car</h1>
+  <div class="card" id="inicio">
+    <h2>Seleccionar Matrícula</h2>
+    <select id="matriculaSelect" size="8" style="height:auto;"></select>
+    <input type="text" id="nuevaMatricula" placeholder="Ejemplo: 1234ABC" maxlength="7" />
+    <button id="btnAgregar">➕ Añadir Matrícula</button>
+    <div style="display:flex; gap:10px; margin-top:12px;">
+      <button id="btnSeleccionar" disabled>✅ Seleccionar Matrícula</button>
+      <button id="btnEliminar" disabled class="secondary">🗑️ Eliminar Matrícula</button>
+    </div>
+    <div id="mensajeEliminar" class="hidden">
+      <p><strong>Va a eliminar esta matrícula y sus datos. ¿Está seguro?</strong></p>
+      <button id="confirmarEliminar" class="secondary">Confirmar eliminación</button>
+      <button id="cancelarEliminar">Cancelar</button>
+    </div>
+  </div>
+
+  <div class="card hidden" id="detalle">
+    <h2 id="tituloRegistro"></h2>
+    <label><strong>Contrato Nº:</strong></label>
+    <input type="text" id="contratoInput" placeholder="Número de contrato" />
+    
+    <!-- Fecha de modificación editable -->
+    <div style="margin-top:10px; text-align:center;">
+      <label for="fechaInput">📅 Fecha de modificación:</label>
+      <input type="text" id="fechaInput" placeholder="Se autocompleta con la primera foto" readonly />
+      <button id="borrarFecha" class="secondary" style="margin-top:8px;">🧽 Borrar fecha</button>
+    </div>
+
+    <h3>Desperfectos generales</h3>
+    <textarea id="desperfectos" placeholder="Describir desperfectos..."></textarea>
+    <button id="guardarDesperfectos">💾 Guardar desperfectos</button>
+    <h3>Checklist</h3>
+    <div id="checklist"></div>
+    <h3>Fotos</h3>
+    <button id="btnCamara">📸 Tomar Foto</button>
+    <input id="fotoInput" type="file" accept="image/*" capture="environment" multiple class="hidden" />
+    <div id="fotoContador" style="margin-top:12px; font-weight:bold;">Fotos tomadas: 0 / 6</div>
+    <div id="fotos" class="photo-gallery"></div>
+    <button id="volverInicio" class="secondary" style="margin-top:20px;">⬅️ Volver al inicio</button>
+  </div>
+
+  <script>
+    const itemsChecklist = [
+      "Combustible","Retrovisor izquierdo", "Retrovisor derecho", "Paragolpes delantero",
+      "Paragolpes trasero", "Puerta lateral", "Puerta trasera", 
+      "Alfombrillas", "Rueda de repuesto", "Herramientas",
+      "Intermitente delantero izquierdo", "Intermitente delantero derecho",
+      "Intermitente trasero izquierdo", "Intermitente trasero derecho",
+      "Foco delantero izquierdo", "Foco delantero derecho",
+      "Foco trasero izquierdo", "Foco trasero derecho"
+    ];
+
+    const vehiculos = JSON.parse(localStorage.getItem('vehiculos') || '{}');
+    const matriculaSelect = document.getElementById('matriculaSelect');
+    const nuevaMatriculaInput = document.getElementById('nuevaMatricula');
+    const btnAgregar = document.getElementById('btnAgregar');
+    const btnSeleccionar = document.getElementById('btnSeleccionar');
+    const btnEliminar = document.getElementById('btnEliminar');
+    const mensajeEliminar = document.getElementById('mensajeEliminar');
+    const confirmarEliminar = document.getElementById('confirmarEliminar');
+    const cancelarEliminar = document.getElementById('cancelarEliminar');
+    const inicioDiv = document.getElementById('inicio');
+    const detalleDiv = document.getElementById('detalle');
+    const tituloRegistro = document.getElementById('tituloRegistro');
+    const desperfectosTextarea = document.getElementById('desperfectos');
+    const guardarDesperfectosBtn = document.getElementById('guardarDesperfectos');
+    const checklistDiv = document.getElementById('checklist');
+    const btnCamara = document.getElementById('btnCamara');
+    const fotoInput = document.getElementById('fotoInput');
+    const fotosDiv = document.getElementById('fotos');
+    const volverInicioBtn = document.getElementById('volverInicio');
+    const fotoContador = document.getElementById('fotoContador');
+    const contratoInput = document.getElementById('contratoInput');
+    const fechaInput = document.getElementById('fechaInput');
+    const borrarFechaBtn = document.getElementById('borrarFecha');
+
+    let matriculaSeleccionada = null;
+
+    function guardarDatos() {
+      localStorage.setItem('vehiculos', JSON.stringify(vehiculos));
+    }
+
+    function actualizarListado() {
+      matriculaSelect.innerHTML = '';
+      Object.keys(vehiculos).sort().forEach(k => {
+        const op = document.createElement('option');
+        op.value = k;
+        op.textContent = k;
+        matriculaSelect.appendChild(op);
+      });
+      btnSeleccionar.disabled = true;
+      btnEliminar.disabled = true;
+    }
+
+    function validarMatricula(txt) {
+      return /^[0-9]{4}[A-Z]{3}$/.test(txt);
+    }
+
+    btnAgregar.addEventListener('click', () => {
+      const base = nuevaMatriculaInput.value.trim().toUpperCase();
+      if (!validarMatricula(base)) {
+        alert("Formato inválido. Usa 4 números y 3 letras (ej: 1234ABC)");
+        return;
+      }
+      let creados = 0;
+      for (let i = 1; i <= 3; i++) {
+        const clave = `${base}#${i}`;
+        if (!vehiculos[clave]) {
+          vehiculos[clave] = { desperfectos: "", checklist: {}, fotos: [], contrato: "", fecha: "" };
+          creados++;
+        }
+      }
+      if (creados > 0) {
+        guardarDatos();
+        actualizarListado();
+        nuevaMatriculaInput.value = '';
+      } else {
+        alert("Los 3 registros ya existen para esa matrícula.");
+      }
+    });
+
+    matriculaSelect.addEventListener('change', () => {
+      matriculaSeleccionada = matriculaSelect.value;
+      btnSeleccionar.disabled = !matriculaSeleccionada;
+      btnEliminar.disabled = !matriculaSeleccionada;
+    });
+
+    btnSeleccionar.addEventListener('click', () => {
+      const data = vehiculos[matriculaSeleccionada];
+      tituloRegistro.textContent = matriculaSeleccionada;
+      desperfectosTextarea.value = data.desperfectos || "";
+      contratoInput.value = data.contrato || "";
+      fechaInput.value = data.fecha || "";
+      checklistDiv.innerHTML = '';
+
+      itemsChecklist.forEach(item => {
+        const label = document.createElement('label');
+        label.style.display = 'block';
+        label.style.marginBottom = '8px';
+
+        const select = document.createElement('select');
+        select.style.padding = '6px';
+        select.style.borderRadius = '6px';
+        select.style.marginLeft = '8px';
+        select.style.fontWeight = 'bold';
+
+        const opcionCorrecto = document.createElement('option');
+        opcionCorrecto.value = 'Correcto';
+        opcionCorrecto.textContent = '✅ Correcto';
+
+        const opcionIncorrecto = document.createElement('option');
+        opcionIncorrecto.value = 'Incorrecto';
+        opcionIncorrecto.textContent = '❌ Incorrecto';
+
+        select.appendChild(opcionCorrecto);
+        select.appendChild(opcionIncorrecto);
+
+        const valorGuardado = data.checklist[item];
+        if (valorGuardado === true) {
+          select.value = 'Correcto';
+        } else if (valorGuardado === false) {
+          select.value = 'Incorrecto';
+        } else {
+          select.value = valorGuardado || 'Correcto';
+        }
+
+        aplicarColorSelect(select);
+
+        select.addEventListener('change', () => {
+          data.checklist[item] = select.value;
+          aplicarColorSelect(select);
+          guardarDatos();
+        });
+
+        label.textContent = item + ':';
+        label.appendChild(select);
+        checklistDiv.appendChild(label);
+      });
+
+      fotosDiv.innerHTML = '';
+      data.fotos.forEach((f, idx) => agregarFoto(f, idx));
+      fotoContador.textContent = `Fotos tomadas: ${data.fotos.length} / 6`;
+      inicioDiv.classList.add('hidden');
+      detalleDiv.classList.remove('hidden');
+    });
+
+    function aplicarColorSelect(select) {
+      if (select.value === 'Correcto') {
+        select.style.backgroundColor = '#d4edda';
+        select.style.color = '#155724';
+      } else {
+        select.style.backgroundColor = '#f8d7da';
+        select.style.color = '#721c24';
+      }
+    }
+
+    guardarDesperfectosBtn.addEventListener('click', () => {
+      const data = vehiculos[matriculaSeleccionada];
+      data.desperfectos = desperfectosTextarea.value;
+      data.contrato = contratoInput.value;
+      guardarDatos();
+      alert("Datos guardados.");
+    });
+
+    btnEliminar.addEventListener('click', () => {
+      mensajeEliminar.classList.remove('hidden');
+    });
+
+    cancelarEliminar.addEventListener('click', () => {
+      mensajeEliminar.classList.add('hidden');
+    });
+
+    confirmarEliminar.addEventListener('click', () => {
+      delete vehiculos[matriculaSeleccionada];
+      guardarDatos();
+      actualizarListado();
+      mensajeEliminar.classList.add('hidden');
+    });
+
+    volverInicioBtn.addEventListener('click', () => {
+      inicioDiv.classList.remove('hidden');
+      detalleDiv.classList.add('hidden');
+    });
+
+    btnCamara.addEventListener('click', () => {
+      fotoInput.click();
+    });
+
+    fotoInput.addEventListener('change', (e) => {
+      const files = Array.from(e.target.files);
+      const data = vehiculos[matriculaSeleccionada];
+      const disponibles = 6 - data.fotos.length;
+      const usar = files.slice(0, disponibles);
+      const lector = new FileReader();
+      let idx = 0;
+
+      function leerSiguiente() {
+        if (idx >= usar.length) return;
+        const f = usar[idx];
+        lector.onload = () => {
+          const base64 = lector.result;
+          if (!data.fecha) {
+            const now = new Date().toLocaleString();
+            data.fecha = now;
+            fechaInput.value = now;
+          }
+          data.fotos.push(base64);
+          agregarFoto(base64, data.fotos.length - 1);
+          guardarDatos();
+          fotoContador.textContent = `Fotos tomadas: ${data.fotos.length} / 6`;
+          idx++;
+          leerSiguiente();
+        };
+        lector.readAsDataURL(f);
+      }
+      leerSiguiente();
+    });
+
+    function agregarFoto(base64, index) {
+      const div = document.createElement('div');
+      div.className = 'foto-card';
+      const img = document.createElement('img');
+      img.src = base64;
+      div.appendChild(img);
+      const btn = document.createElement('button');
+      btn.textContent = "❌ Eliminar";
+      btn.className = 'btnEliminarFoto';
+      btn.addEventListener('click', () => {
+        if (confirm("¿Eliminar esta foto?")) {
+          vehiculos[matriculaSeleccionada].fotos.splice(index, 1);
+          guardarDatos();
+          btnSeleccionar.click();
+        }
+      });
+      div.appendChild(btn);
+      fotosDiv.appendChild(div);
+    }
+
+    borrarFechaBtn.addEventListener('click', () => {
+      if (confirm("¿Borrar la fecha de modificación?")) {
+        const data = vehiculos[matriculaSeleccionada];
+        data.fecha = "";
+        fechaInput.value = "";
+        guardarDatos();
+      }
+    });
+
+    actualizarListado();
+  </script>
+</body>
+</html>
